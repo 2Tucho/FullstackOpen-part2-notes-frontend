@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
 import Note from './components/Note'
+import noteService from './services/notes'
 
 const App = () => {
   const [notes, setNotes] = useState([])
@@ -9,27 +9,26 @@ const App = () => {
 
   // Para pedirle los datos al "back", que en este caso será al archivo db.json al encender el servidor con el comando: npm run server
   useEffect(() => {
-    console.log('effect')
-    axios
-      .get('http://localhost:3001/notes')
-      .then(response => {
-        console.log('promise fulfilled')
-        setNotes(response.data)
+    noteService
+      .getAll()
+      .then(initialNotes => {
+        setNotes(initialNotes)
       })
   }, [])
-  console.log('render', notes.length, 'notes')
 
   // Para añadir la nota nueva. Se crea un nuevo objeto con la info nueva recogida en el estado del input y este actualiza al objeto que había antes en el estado notes
   const addNote = (event) => {
     event.preventDefault()
     const noteObject = {
       content: newNote,
-      important: Math.random() < 0.5,
-      id: notes.length + 1,
+      important: Math.random() < 0.5
     }
 
-    setNotes(notes.concat(noteObject))
-    setNewNote('') //A cero para que se pueda rellenar de nuevo
+    noteService
+      .create(noteObject)
+      .then(returnedNote => {
+        setNotes(notes.concat(returnedNote)) // El método concat no cambia el estado original del componente, sino que crea una nueva copia de la lista.
+      })
   }
 
   // Para que el estado cambie cada vez que se escribe en el inputs
@@ -42,6 +41,28 @@ const App = () => {
     ? notes
     : notes.filter(note => note.important === true) // También valdría notes.filter(note => note.important) porque directamente está comprobando que sea true
 
+  // Función para cambiar el booleano de las notas, si son o no importantes
+  const toggleImportanceOf = id => {
+    const url = `http://localhost:3001/notes/${id}`
+    const note = notes.find(n => n.id === id) // El método de array find se usa para encontrar la nota que queremos modificar
+    const changedNote = { ...note, important: !note.important } // creamos un nuevo objeto que es una copia exacta de la nota anterior, excepto por la propiedad important que tiene su valor cambiado (de true a false o de false a true). En la práctica, { ...note } crea un nuevo objeto con copias de todas las propiedades del objeto note . Cuando agregamos propiedades dentro de las llaves después del objeto extendido, por ejemplo, { ...note, important: true }, entonces el valor de la propiedad important del nuevo objeto será true. En nuestro ejemplo, la propiedad important obtiene la negación de su valor anterior en el objeto original.
+
+    // axios.put(url, changedNote).then(response => { // Podemos reemplazar la nota completa con una solicitud HTTP PUT, o solo cambiar algunas de las propiedades de la nota con una solicitud HTTP PATCH.
+    //   setNotes(notes.map(note => note.id !== id ? note : response.data)) // El método map crea una nueva matriz al mapear cada elemento de la matriz anterior a un elemento de la nueva matriz. En nuestro ejemplo, la nueva matriz se crea de forma condicional de modo que si note.id !== id es verdadero, simplemente copiamos el elemento de la matriz anterior en la nueva matriz. Si la condición es falsa, el objeto de nota devuelto por el servidor se agrega a la matriz.
+    // })
+    noteService
+      .update(id, changedNote)
+      .then(returnedNote => {
+        setNotes(notes.map(note => note.id !== id ? note : returnedNote))
+      })
+      .catch(error => {
+        alert(
+          `the note '${note.content}' was already deleted from server`
+        )
+        setNotes(notes.filter(n => n.id !== id)) // La eliminación de una nota ya eliminada del estado de la aplicación se realiza con el método de array filter, que devuelve una nueva matriz que comprende solo los elementos de la lista para los cuales la función que se pasó como parámetro devuelve verdadero
+      })
+  }
+
   return (
     <div>
       <h1>Notes</h1>
@@ -51,8 +72,8 @@ const App = () => {
         </button>
       </div>
       <ul>
-        {notesToShow.map(note =>
-          <Note key={note.id} note={note} />
+        {notesToShow.map((note, i) =>
+          <Note key={i} note={note} toggleImportance={() => toggleImportanceOf(note.id)} />
         )}
       </ul>
       <form onSubmit={addNote}>
