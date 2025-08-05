@@ -2,8 +2,8 @@ import { useState, useEffect } from "react"
 import Footer from "./components/Footer"
 import Note from "./components/Note"
 import Notification from "./components/Notification"
-import noteService from "./services/notes"
-//import loginService from "./services/login"
+import noteService from "./services/noteService"
+import loginService from "./services/loginService"
 
 const App = () => {
   const [notes, setNotes] = useState([])
@@ -13,6 +13,16 @@ const App = () => {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [user, setUser] = useState(null)
+
+  // para que cuando ingresemos a la página, la aplicación verifique si los detalles de un usuario que inició sesión ya se pueden encontrar en el local storage
+  useEffect(() => {
+    const loggedUserJSON = window.localStorage.getItem('loggedNoteappUser')
+    if (loggedUserJSON) {
+      const user = JSON.parse(loggedUserJSON)
+      setUser(user)
+      noteService.setToken(user.token)
+    }
+  }, [])
 
   // Para pedirle los datos al "back", que en este caso será al archivo db.json al encender el servidor con el comando: npm run server
   useEffect(() => {
@@ -81,6 +91,11 @@ const App = () => {
       const user = await loginService.login({
         username, password,
       })
+
+      window.localStorage.setItem(
+        'loggedNoteappUser', JSON.stringify(user)
+      )
+      noteService.setToken(user.token)
       setUser(user)
       setUsername("")
       setPassword("")
