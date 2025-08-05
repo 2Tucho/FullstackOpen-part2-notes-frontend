@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import Footer from "./components/Footer"
 import Note from "./components/Note"
 import Notification from "./components/Notification"
-import noteService from "./services/notes"
+import noteService from "./services/noteService"
 //import loginService from "./services/login"
 
 const App = () => {
@@ -81,6 +81,8 @@ const App = () => {
       const user = await loginService.login({
         username, password,
       })
+
+      noteService.setToken(user.token)
       setUser(user)
       setUsername("")
       setPassword("")
